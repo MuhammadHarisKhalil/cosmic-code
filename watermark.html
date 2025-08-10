@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Multi Image Watermark Tool</title>
+  <style>
+    body{font-family:sans-serif;margin:0;background:#f8fafc;color:#0f172a}
+    .container{max-width:1200px;margin:0 auto;padding:20px}
+    h1{margin:0;font-size:1.5rem}
+    .uploader{border:2px dashed #cbd5e1;padding:20px;text-align:center;margin-bottom:20px;background:#fff;border-radius:8px}
+    input[type=file]{margin-top:10px}
+    .controls{background:#fff;padding:16px;border-radius:8px;margin-bottom:20px}
+    label{display:block;margin-top:10px}
+    input,select{width:100%;padding:6px;margin-top:4px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px}
+    canvas{background:#e2e8f0;max-width:100%;border-radius:6px}
+    button{margin-top:12px;padding:8px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Multi Image Watermark Tool</h1>
+    <div class="uploader">
+      <p>Upload one or more images</p>
+      <input type="file" id="fileInput" accept="image/*" multiple>
+    </div>
+
+    <div class="controls">
+      <label>Watermark Text
+        <input type="text" id="text" value="© My Watermark">
+      </label>
+      <label>Font Size (px)
+        <input type="number" id="fontSize" value="36">
+      </label>
+      <label>Opacity
+        <input type="range" id="opacity" min="0" max="1" step="0.01" value="0.45">
+      </label>
+      <label>Color
+        <input type="color" id="color" value="#ffffff">
+      </label>
+      <label>Position
+        <select id="position">
+          <option value="bottom-right">Bottom Right</option>
+          <option value="bottom-left">Bottom Left</option>
+          <option value="top-right">Top Right</option>
+          <option value="top-left">Top Left</option>
+          <option value="center">Center</option>
+        </select>
+      </label>
+      <label>Text Angle (degrees)
+        <input type="number" id="angle" value="0">
+      </label>
+      <label>Logo Image (optional)
+        <input type="file" id="logoInput" accept="image/*">
+      </label>
+      <button id="applyBtn">Apply Watermark</button>
+      <button id="downloadAllBtn">Download All</button>
+    </div>
+
+    <div class="grid" id="imageGrid"></div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const logoInput = document.getElementById('logoInput');
+    const imageGrid = document.getElementById('imageGrid');
+    const textInput = document.getElementById('text');
+    const fontSizeInput = document.getElementById('fontSize');
+    const opacityInput = document.getElementById('opacity');
+    const colorInput = document.getElementById('color');
+    const positionInput = document.getElementById('position');
+    const angleInput = document.getElementById('angle');
+    const applyBtn = document.getElementById('applyBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+
+    let images = [];
+    let logoImg = null;
+
+    fileInput.addEventListener('change',()=>{
+      images = [];
+      imageGrid.innerHTML = '';
+      Array.from(fileInput.files).forEach(file=>{
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img,0,0);
+            imageGrid.appendChild(canvas);
+            images.push({canvas,ctx,img});
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    logoInput.addEventListener('change',()=>{
+      const file = logoInput.files[0];
+      if(file){
+        const reader = new FileReader();
+        reader.onload = e=>{
+          logoImg = new Image();
+          logoImg.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function applyWatermarkToAll(){
+      images.forEach(({canvas,ctx,img})=>{
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img,0,0);
+        ctx.save();
+        ctx.globalAlpha = parseFloat(opacityInput.value);
+        ctx.font = `${fontSizeInput.value}px sans-serif`;
+        ctx.fillStyle = colorInput.value;
+        const text = textInput.value;
+        const metrics = ctx.measureText(text);
+        let x=20,y=canvas.height-20;
+        switch(positionInput.value){
+          case 'bottom-right': x = canvas.width - metrics.width - 20; y = canvas.height - 20; break;
+          case 'bottom-left': x = 20; y = canvas.height - 20; break;
+          case 'top-right': x = canvas.width - metrics.width - 20; y = 40; break;
+          case 'top-left': x = 20; y = 40; break;
+          case 'center': x = (canvas.width - metrics.width)/2; y = canvas.height/2; break;
+        }
+        ctx.translate(x + metrics.width/2, y);
+        ctx.rotate(parseFloat(angleInput.value) * Math.PI / 180);
+        ctx.fillText(text, -metrics.width/2, 0);
+        ctx.restore();
+        ctx.globalAlpha = 1;
+        if(logoImg){
+          const logoW = img.width*0.15;
+          const logoH = logoImg.height * (logoW/logoImg.width);
+          ctx.drawImage(logoImg,canvas.width-logoW-20,20,logoW,logoH);
+        }
+      });
+    }
+
+    applyBtn.addEventListener('click',applyWatermarkToAll);
+
+    downloadAllBtn.addEventListener('click',()=>{
+      images.forEach(({canvas},i)=>{
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = `watermarked_${i+1}.png`;
+        a.click();
+      });
+    });
+  </script>
+</body>
+</html>
