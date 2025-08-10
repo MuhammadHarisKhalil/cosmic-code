@@ -1,157 +1,250 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Multi Image Watermark Tool</title>
-  <style>
-    body{font-family:sans-serif;margin:0;background:#f8fafc;color:#0f172a}
-    .container{max-width:1200px;margin:0 auto;padding:20px}
-    h1{margin:0;font-size:1.5rem}
-    .uploader{border:2px dashed #cbd5e1;padding:20px;text-align:center;margin-bottom:20px;background:#fff;border-radius:8px}
-    input[type=file]{margin-top:10px}
-    .controls{background:#fff;padding:16px;border-radius:8px;margin-bottom:20px}
-    label{display:block;margin-top:10px}
-    input,select{width:100%;padding:6px;margin-top:4px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px}
-    canvas{background:#e2e8f0;max-width:100%;border-radius:6px}
-    button{margin-top:12px;padding:8px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer}
-  </style>
+<meta charset="UTF-8">
+<title>Image Watermark Tool</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f9f9f9;
+        margin: 0; padding: 20px;
+        color: #333;
+    }
+    h1 { text-align: center; margin-bottom: 20px; }
+    .container { max-width: 1100px; margin: auto; }
+    .controls {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    label { font-weight: bold; display: block; margin-top: 10px; }
+    input, select, button {
+        margin-top: 5px;
+        padding: 6px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    input[type=color] { padding: 0; border: none; background: none; }
+    button {
+        background: #4CAF50;
+        color: white;
+        cursor: pointer;
+    }
+    button:hover { background: #45a049; }
+    .preview-area {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    .preview {
+        background: white;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    canvas {
+        max-width: 300px;
+        border: 1px solid #ddd;
+    }
+    .watermark-entry {
+        background: #f2f2f2;
+        padding: 8px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1>Multi Image Watermark Tool</h1>
-    <div class="uploader">
-      <p>Upload one or more images</p>
-      <input type="file" id="fileInput" accept="image/*" multiple>
-    </div>
+<div class="container">
+    <h1>Image Watermark Tool</h1>
 
     <div class="controls">
-      <label>Watermark Text
-        <input type="text" id="text" value="© My Watermark">
-      </label>
-      <label>Font Size (px)
-        <input type="number" id="fontSize" value="36">
-      </label>
-      <label>Opacity
-        <input type="range" id="opacity" min="0" max="1" step="0.01" value="0.45">
-      </label>
-      <label>Color
-        <input type="color" id="color" value="#ffffff">
-      </label>
-      <label>Position
-        <select id="position">
-          <option value="bottom-right">Bottom Right</option>
-          <option value="bottom-left">Bottom Left</option>
-          <option value="top-right">Top Right</option>
-          <option value="top-left">Top Left</option>
-          <option value="center">Center</option>
-        </select>
-      </label>
-      <label>Text Angle (degrees)
-        <input type="number" id="angle" value="0">
-      </label>
-      <label>Logo Image (optional)
+        <label>Select Images:</label>
+        <input type="file" id="imageInput" accept="image/*" multiple>
+
+        <label>Watermarks:</label>
+        <div id="watermarks"></div>
+        <button type="button" onclick="addWatermark()">+ Add Watermark</button>
+
+        <label>Optional Logo:</label>
         <input type="file" id="logoInput" accept="image/*">
-      </label>
-      <button id="applyBtn">Apply Watermark</button>
-      <button id="downloadAllBtn">Download All</button>
+
+        <button type="button" onclick="downloadAll()">Download All</button>
     </div>
 
-    <div class="grid" id="imageGrid"></div>
-  </div>
+    <div class="preview-area" id="previewArea"></div>
+</div>
 
-  <script>
-    const fileInput = document.getElementById('fileInput');
-    const logoInput = document.getElementById('logoInput');
-    const imageGrid = document.getElementById('imageGrid');
-    const textInput = document.getElementById('text');
-    const fontSizeInput = document.getElementById('fontSize');
-    const opacityInput = document.getElementById('opacity');
-    const colorInput = document.getElementById('color');
-    const positionInput = document.getElementById('position');
-    const angleInput = document.getElementById('angle');
-    const applyBtn = document.getElementById('applyBtn');
-    const downloadAllBtn = document.getElementById('downloadAllBtn');
+<script>
+let images = [];
+let logo = null;
+let watermarks = [];
 
-    let images = [];
-    let logoImg = null;
+function addWatermark() {
+    const wm = {
+        text: 'Sample Watermark',
+        size: 24,
+        color: '#000000',
+        opacity: 0.5,
+        angle: 0,
+        posX: 50,
+        posY: 50
+    };
+    watermarks.push(wm);
+    renderWatermarkControls();
+    drawAllPreviews();
+}
 
-    fileInput.addEventListener('change',()=>{
-      images = [];
-      imageGrid.innerHTML = '';
-      Array.from(fileInput.files).forEach(file=>{
+function renderWatermarkControls() {
+    const container = document.getElementById('watermarks');
+    container.innerHTML = '';
+    watermarks.forEach((wm, index) => {
+        const div = document.createElement('div');
+        div.className = 'watermark-entry';
+        div.innerHTML = `
+            <label>Text:</label>
+            <input type="text" value="${wm.text}" onchange="updateWM(${index}, 'text', this.value)">
+            <label>Size:</label>
+            <input type="number" value="${wm.size}" onchange="updateWM(${index}, 'size', this.value)">
+            <label>Color:</label>
+            <input type="color" value="${wm.color}" onchange="updateWM(${index}, 'color', this.value)">
+            <label>Opacity (0-1):</label>
+            <input type="number" step="0.1" value="${wm.opacity}" onchange="updateWM(${index}, 'opacity', this.value)">
+            <label>Angle (deg):</label>
+            <input type="number" value="${wm.angle}" onchange="updateWM(${index}, 'angle', this.value)">
+            <label>Position X%:</label>
+            <input type="number" value="${wm.posX}" onchange="updateWM(${index}, 'posX', this.value)">
+            <label>Position Y%:</label>
+            <input type="number" value="${wm.posY}" onchange="updateWM(${index}, 'posY', this.value)">
+            <button onclick="removeWM(${index})">Remove</button>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function updateWM(index, key, value) {
+    watermarks[index][key] = isNaN(value) ? value : Number(value);
+    drawAllPreviews();
+}
+
+function removeWM(index) {
+    watermarks.splice(index, 1);
+    renderWatermarkControls();
+    drawAllPreviews();
+}
+
+document.getElementById('imageInput').addEventListener('change', function(e) {
+    images = [];
+    const files = e.target.files;
+    let loaded = 0;
+    for (let file of files) {
         const reader = new FileReader();
-        reader.onload = e => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img,0,0);
-            imageGrid.appendChild(canvas);
-            images.push({canvas,ctx,img});
-          };
-          img.src = e.target.result;
+        reader.onload = function(evt) {
+            const img = new Image();
+            img.onload = function() {
+                images.push(img);
+                loaded++;
+                if (loaded === files.length) drawAllPreviews();
+            };
+            img.src = evt.target.result;
         };
         reader.readAsDataURL(file);
-      });
-    });
-
-    logoInput.addEventListener('change',()=>{
-      const file = logoInput.files[0];
-      if(file){
-        const reader = new FileReader();
-        reader.onload = e=>{
-          logoImg = new Image();
-          logoImg.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-
-    function applyWatermarkToAll(){
-      images.forEach(({canvas,ctx,img})=>{
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        ctx.drawImage(img,0,0);
-        ctx.save();
-        ctx.globalAlpha = parseFloat(opacityInput.value);
-        ctx.font = `${fontSizeInput.value}px sans-serif`;
-        ctx.fillStyle = colorInput.value;
-        const text = textInput.value;
-        const metrics = ctx.measureText(text);
-        let x=20,y=canvas.height-20;
-        switch(positionInput.value){
-          case 'bottom-right': x = canvas.width - metrics.width - 20; y = canvas.height - 20; break;
-          case 'bottom-left': x = 20; y = canvas.height - 20; break;
-          case 'top-right': x = canvas.width - metrics.width - 20; y = 40; break;
-          case 'top-left': x = 20; y = 40; break;
-          case 'center': x = (canvas.width - metrics.width)/2; y = canvas.height/2; break;
-        }
-        ctx.translate(x + metrics.width/2, y);
-        ctx.rotate(parseFloat(angleInput.value) * Math.PI / 180);
-        ctx.fillText(text, -metrics.width/2, 0);
-        ctx.restore();
-        ctx.globalAlpha = 1;
-        if(logoImg){
-          const logoW = img.width*0.15;
-          const logoH = logoImg.height * (logoW/logoImg.width);
-          ctx.drawImage(logoImg,canvas.width-logoW-20,20,logoW,logoH);
-        }
-      });
     }
+});
 
-    applyBtn.addEventListener('click',applyWatermarkToAll);
+document.getElementById('logoInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) { logo = null; drawAllPreviews(); return; }
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        const img = new Image();
+        img.onload = function() {
+            logo = img;
+            drawAllPreviews();
+        };
+        img.src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+});
 
-    downloadAllBtn.addEventListener('click',()=>{
-      images.forEach(({canvas},i)=>{
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = `watermarked_${i+1}.png`;
-        a.click();
-      });
+function drawAllPreviews() {
+    const area = document.getElementById('previewArea');
+    area.innerHTML = '';
+    images.forEach((img, idx) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+
+        watermarks.forEach(wm => {
+            ctx.save();
+            ctx.globalAlpha = wm.opacity;
+            ctx.fillStyle = wm.color;
+            ctx.font = `${wm.size}px Arial`;
+            ctx.translate(canvas.width * wm.posX / 100, canvas.height * wm.posY / 100);
+            ctx.rotate(wm.angle * Math.PI / 180);
+            ctx.textAlign = 'center';
+            ctx.fillText(wm.text, 0, 0);
+            ctx.restore();
+        });
+
+        if (logo) {
+            ctx.globalAlpha = 1;
+            const logoSize = Math.min(canvas.width, canvas.height) / 5;
+            ctx.drawImage(logo, canvas.width - logoSize - 10, canvas.height - logoSize - 10, logoSize, logoSize);
+        }
+
+        const div = document.createElement('div');
+        div.className = 'preview';
+        div.appendChild(canvas);
+        area.appendChild(div);
     });
-  </script>
+}
+
+function downloadAll() {
+    images.forEach((img, idx) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+
+        watermarks.forEach(wm => {
+            ctx.save();
+            ctx.globalAlpha = wm.opacity;
+            ctx.fillStyle = wm.color;
+            ctx.font = `${wm.size}px Arial`;
+            ctx.translate(canvas.width * wm.posX / 100, canvas.height * wm.posY / 100);
+            ctx.rotate(wm.angle * Math.PI / 180);
+            ctx.textAlign = 'center';
+            ctx.fillText(wm.text, 0, 0);
+            ctx.restore();
+        });
+
+        if (logo) {
+            ctx.globalAlpha = 1;
+            const logoSize = Math.min(canvas.width, canvas.height) / 5;
+            ctx.drawImage(logo, canvas.width - logoSize - 10, canvas.height - logoSize - 10, logoSize, logoSize);
+        }
+
+        const link = document.createElement('a');
+        link.download = `watermarked_${idx+1}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+    });
+}
+
+addWatermark();
+</script>
 </body>
 </html>
